@@ -1,0 +1,3 @@
+TEAM NAME :-ATHERMACH 
+TEAM MEMBERS:- 1. DIYA DAS 2. SOUMIK HORE 3. ARGHA PAUL 4. SREEJEET SARKAR
+PROJECT IDEA:- Adaptive Mechanical Vibration & Fatigue Control System 
