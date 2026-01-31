@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ATHERMACH | Global Engineering Command Center</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap');
+
+        :root {
+            /* BRAND PALETTE */
+            --neon: #d6ed17;
+            --neon-dim: rgba(214, 237, 23, 0.1);
+            --bg-deep: #030712;
+            --panel-glass: rgba(10, 10, 15, 0.85);
+            --border-light: rgba(255, 255, 255, 0.08);
+            
+            /* SIMULATION PALETTES */
+            --lockheed-bg: #0d1b2a;
+            --lockheed-text: #00f0ff;
+            --ansys-bg: #1e1e1e;
+            --ansys-panel: #2d2d2d;
+            --ansys-accent: #ffb700;
+        }
+
+        /* GLOBAL RESETS */
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            cursor: none !important; /* Hiding default cursor for liquid UI */
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: #f3f4f6;
+            font-family: 'Space Grotesk', sans-serif;
+            margin: 0;
+            overflow-x: hidden;
+            width: 100vw;
+            min-height: 100vh;
+        }
+
+        /* ------------------------------------------------
+           LIQUID CURSOR ENGINE CSS
+           ------------------------------------------------ */
+        #cursor-main {
+            position: fixed;
+            width: 8px; height: 8px;
+            background: var(--neon);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10000;
+            transition: transform 0.05s linear;
+        }
+        
+        #cursor-ring {
+            position: fixed;
+            width: 40px; height: 40px;
+            border: 1px solid var(--neon);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                        width 0.3s ease, 
+                        height 0.3s ease,
+                        background-color 0.3s ease;
+        }
+
+        /* Hover States for Liquid UI */
+        body.hovering #cursor-ring {
+            transform: scale(1.5);
+            background-color: var(--neon-dim);
+            border-color: transparent;
+        }
+
+        /* ------------------------------------------------
+           UTILITY CLASSES
+           ------------------------------------------------ */
+        .glass-panel {
+            background: var(--panel-glass);
+            backdrop-filter: blur(24px);
+            border: 1px solid var(--border-light);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .cyber-grid {
+            background-image: 
+                linear-gradient(rgba(214, 237, 23, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(214, 237, 23, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        .text-neon { color: var(--neon); }
+        .border-neon { border-color: var(--neon); }
+        .bg-neon { background-color: var(--neon); }
+        
+        .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: var(--neon); border-radius: 10px; }
+
+        /* ------------------------------------------------
+           SIMULATION SPECIFIC STYLES
+           ------------------------------------------------ */
+        /* Lockheed Martin Clone Styles */
+        .lockheed-interface {
+            font-family: 'JetBrains Mono', monospace;
+            background-color: var(--lockheed-bg);
+            color: var(--lockheed-text);
+            text-shadow: 0 0 5px rgba(0, 240, 255, 0.5);
+        }
+        .lockheed-border { border: 1px solid rgba(0, 240, 255, 0.3); }
+        .lockheed-grid {
+            background-image: linear-gradient(rgba(0, 240, 255, 0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 240, 255, 0.1) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Ansys Clone Styles */
+        .ansys-interface {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--ansys-bg);
+            color: #ccc;
+        }
+        .ansys-toolbar-item {
+            padding: 4px 12px;
+            font-size: 11px;
+            border-right: 1px solid #444;
+            cursor: pointer;
+        }
+        .ansys-toolbar-item:hover { background: #333; color: white; }
+
+        /* ANIMATIONS */
+        @keyframes scanline {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+        .scan-effect::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, transparent, rgba(0, 240, 255, 0.1), transparent);
+            animation: scanline 4s linear infinite;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="cursor-main"></div>
+    <div id="cursor-ring"></div>
+    
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // ==================================================================================
+        // 1. INITIALIZATION & IMPORTS
+        // ==================================================================================
+        const { useState, useEffect, useRef, useMemo, useCallback } = React;
+        const { motion, AnimatePresence } = window.Motion;
+
+        // ==================================================================================
+        // 2. PHYSICS ENGINE (BASQUIN'S EQUATION & POWER LAW)
+        // ==================================================================================
+        
+        /**
+         * Athermach Physics Core v6.0
+         * Handles Fatigue Life Calculations based on PDF Methodology
+         */
+        const PhysicsEngine = {
+            
+            // Calculate Fatigue Life using Basquin's Equation: σ_a = σ_f' * (2N)^b
+            calculateFatigueLife: (stressAmplitude, dampingRatio) => {
+                // Effective stress is reduced by damping: Δσ_eff = Δσ * (1 - ζ * EfficiencyFactor)
+                // From PDF: 62% reduction possible at optimal tuning
+                const suppressionFactor = dampingRatio * 2.48; // Calibrated to PDF stats
+                const effectiveStress = stressAmplitude * (1 - Math.min(suppressionFactor, 0.62));
+                
+                // Material Constants for Aerospace Aluminum 7075-T6
+                const fatigueStrengthCoef = 1100; // MPa
+                const fatigueExponent = -0.12;
+                
+                // Rearranged Basquin: 2N = (σ_a / σ_f')^(1/b)
+                const reversals = Math.pow(effectiveStress / fatigueStrengthCoef, 1 / fatigueExponent);
+                return Math.floor(reversals / 2); // Cycles = Reversals / 2
+            },
+
+            // Aerodynamic Load Calculation for Lockheed Simulation
+            calculateWingLoad: (speedKts, altitudeFt, wingAreaM2) => {
+                // Air density approximation: ρ = 1.225 * e^(-h/8500)
+                const rho = 1.225 * Math.exp(-(altitudeFt * 0.3048) / 8500);
+                const velocityMs = speedKts * 0.514444;
+                const liftCoef = 0.5; // Cruising approx
+                
+                // Lift = 0.5 * ρ * v^2 * A * Cl
+                const liftForce = 0.5 * rho * Math.pow(velocityMs, 2) * wingAreaM2 * liftCoef;
+                
+                // Convert to Stress (Pressure) in MPa (Force / Area) / 1e6
+                return (liftForce / wingAreaM2) / 1000; 
+            },
+
+            // F1 Downforce Calculation for Automotive Simulation
+            calculateDownforce: (speedKph, wingAngleDeg) => {
+                const velocityMs = speedKph / 3.6;
+                const rho = 1.225;
+                const Cl = 2.5 + (wingAngleDeg * 0.1); // Simplified Cl based on angle
+                
+                // F_down = 0.5 * ρ * v^2 * A * Cl
+                const frontalArea = 1.6; // m^2
+                return 0.5 * rho * Math.pow(velocityMs, 2) * frontalArea * Cl; // Newtons
+            },
+
+            // Harmonic Resonance for Energy Turbines
+            calculateHarmonics: (rpm, blades) => {
+                const fundamentalFreq = (rpm / 60) * blades;
+                return [fundamentalFreq, fundamentalFreq * 2, fundamentalFreq * 3]; // 1P, 2P, 3P
+            }
+        };
+
+        // ==================================================================================
+        // 3. ENTERPRISE DATA STORE (MOCK DATABASE)
+        // ==================================================================================
+        
+        const ATHER_DB = {
+            TEAM: [
+                {
+                    id: "EMP-001",
+                    name: "Sreejeet Sarkar",
+                    role: "Chief Systems Architect",
+                    college: "Techno Main Salt Lake",
+                    degree: "B.Tech Mechanical Engineering",
+                    specialty: "System Concept & Mechanical Layout",
+                    bio: "Architected the primary modal splitting algorithm used in the tuned mass dampers."
+                },
+                {
+                    id: "EMP-002",
+                    name: "Diya Das",
+                    role: "Head of Data Analytics",
+                    college: "Techno Main Salt Lake",
+                    degree: "B.Tech Mechanical Engineering",
+                    specialty: "Industry Statistics & Failure Probabilities",
+                    bio: "Led the research on the 58% failure reduction metrics across aerospace sectors."
+                },
+                {
+                    id: "EMP-003",
+                    name: "Soumik Hore",
+                    role: "Lead Vibration Analyst",
+                    college: "Techno Main Salt Lake",
+                    degree: "B.Tech Mechanical Engineering",
+                    specialty: "Graph Interpretation & Spectral Analysis",
+                    bio: "Developed the real-time Fourier Transform visualization engine for the portal."
+                },
+                {
+                    id: "EMP-004",
+                    name: "Argha Paul",
+                    role: "Manufacturing Lead",
+                    college: "Techno Main Salt Lake",
+                    degree: "B.Tech Mechanical Engineering",
+                    specialty: "Material Feasibility & Manufacturability",
+                    bio: "Optimized the viscoelastic polymer compounds for extreme thermal ranges."
+                }
+            ],
+            ENERGY_RECORDS: Array.from({ length: 50 }, (_, i) => ({
+                id: `REC-${1000 + i}`,
+                timestamp: new Date(Date.now() - i * 3600000).toISOString(),
+                turbine_id: `WT-${Math.floor(Math.random() * 50)}`,
+                rpm: (12 + Math.random() * 4).toFixed(1),
+                output_mw: (8.5 + Math.random() * 1.5).toFixed(2),
+                vibration_mm_s: (Math.random() * 1.5).toFixed(3),
+                status: Math.random() > 0.9 ? "MAINT_REQ" : "OPTIMAL"
+            })),
+            INNOVATIONS: [
+                {
+                    title: "Tuned Mass Isolators",
+                    stat: "58%",
+                    desc: "Resonance Splitting Technology",
+                    detail: "Secondary mass systems tuned to structural natural frequencies (50Hz) to create local resonance anti-nodes.",
+                    math: "m1ẍ1 + c1ẋ1 + k1x1 = F(t) - k2(x1 - x2)"
+                },
+                {
+                    title: "Viscoelastic Hysteresis",
+                    stat: "2.8x",
+                    desc: "Fatigue Life Extension",
+                    detail: "Using high-hysteresis polymers that convert 90% of kinetic energy into negligible heat dissipation.",
+                    math: "E* = E' + iE''"
+                },
+                {
+                    title: "Modular Retrofits",
+                    stat: "85%",
+                    desc: "Fleet Compatibility",
+                    detail: "Universal mounting systems designed for Lockheed, Boeing, and Airbus wing spar architectures.",
+                    math: "Compatibility Index > 0.85"
+                }
+            ]
+        };
+
+        // ==================================================================================
+        // 4. UI COMPONENT: LIQUID CURSOR MANAGER
+        // ==================================================================================
+
+        const useLiquidCursor = () => {
+            useEffect(() => {
+                const main = document.getElementById('cursor-main');
+                const ring = document.getElementById('cursor-ring');
+                
+                const onMouseMove = (e) => {
+                    main.style.transform = `translate3d(${e.clientX - 4}px, ${e.clientY - 4}px, 0)`;
+                    ring.style.transform = `translate3d(${e.clientX - 20}px, ${e.clientY - 20}px, 0)`;
+                };
+
+                const onMouseDown = () => {
+                    ring.style.width = '30px';
+                    ring.style.height = '30px';
+                    ring.style.transform += ' translate3d(5px, 5px, 0)';
+                };
+
+                const onMouseUp = () => {
+                    ring.style.width = '40px';
+                    ring.style.height = '40px';
+                };
+
+                const addHover = () => document.body.classList.add('hovering');
+                const removeHover = () => document.body.classList.remove('hovering');
+
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mousedown', onMouseDown);
+                window.addEventListener('mouseup', onMouseUp);
+
+                // Attach to interactive elements
+                const interactives = document.querySelectorAll('button, a, input, select, .interactive');
+                interactives.forEach(el => {
+                    el.addEventListener('mouseenter', addHover);
+                    el.addEventListener('mouseleave', removeHover);
+                });
+
+                return () => {
+                    window.removeEventListener('mousemove', onMouseMove);
+                    window.removeEventListener('mousedown', onMouseDown);
+                    window.removeEventListener('mouseup', onMouseUp);
+                    interactives.forEach(el => {
+                        el.removeEventListener('mouseenter', addHover);
+                        el.removeEventListener('mouseleave', removeHover);
+                    });
+                };
+            }); // Re-run on render to catch new elements
+        };
+
+        // ==================================================================================
+        // 5. SUB-COMPONENT: NAVIGATION
+        // ==================================================================================
+        
+        const Navbar = ({ setView, activeView }) => {
+            const navItems = [
+                { id: 'home', label: 'Command Center' },
+                { id: 'innovations', label: 'R&D Lab' },
+                { id: 'simulation', label: 'Simulations' },
+                { id: 'sales', label: 'ROI & Telemetry' },
+                { id: 'team', label: 'Core Team' },
+                { id: 'privacy', label: 'Secure Data' }
+            ];
+
+            return (
+                <nav className="fixed top-0 w-full z-50 glass-panel border-b-0 border-b border-white/5 h-20 flex items-center justify-between px-8">
+                    <div 
+                        className="flex items-center gap-4 cursor-pointer interactive" 
+                        onClick={() => setView('home')}
+                    >
+                        <div className="w-10 h-10 bg-[#d6ed17] rounded-lg rotate-45 flex items-center justify-center border-2 border-black">
+                            <div className="w-2 h-2 bg-black rounded-full animate-ping"></div>
+                        </div>
+                        <div>
+                            <h1 className="text-2xl font-black italic tracking-tighter leading-none">ATHER<span className="text-neon">MACH</span></h1>
+                            <p className="text-[9px] font-mono tracking-[0.4em] text-slate-400 uppercase">Enterprise V6.0</p>
+                        </div>
+                    </div>
+
+                    <div className="hidden lg:flex gap-8">
+                        {navItems.map((item) => (
+                            <button
+                                key={item.id}
+                                onClick={() => setView(item.id)}
+                                className={`text-[11px] font-bold uppercase tracking-widest transition-all interactive relative py-2 ${activeView === item.id ? 'text-neon' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                {item.label}
+                                {activeView === item.id && (
+                                    <motion.div layoutId="nav-underline" className="absolute bottom-0 left-0 w-full h-[2px] bg-neon" />
+                                )}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                        <span className="text-[10px] font-mono text-slate-400">SYSTEM ONLINE</span>
+                    </div>
+                </nav>
+            );
+        };
+
+        // ==================================================================================
+        // 6. SUB-COMPONENT: LOCKHEED MARTIN CLONE (AEROSPACE)
+        // ==================================================================================
+
+        const LockheedSim = ({ params }) => {
+            const [radarScan, setRadarScan] = useState(0);
+            
+            useEffect(() => {
+                const interval = setInterval(() => setRadarScan(r => (r + 1) % 360), 16);
+                return () => clearInterval(interval);
+            }, []);
+
+            const wingLoad = PhysicsEngine.calculateWingLoad(params.speed, params.altitude, 160); // 160m^2 wing area
+            const fatigueLife = PhysicsEngine.calculateFatigueLife(wingLoad * 1000, 0.25); // 0.25 damping
+
+            return (
+                <div className="w-full h-full p-4 lockheed-interface flex flex-col gap-4 overflow-hidden relative scan-effect rounded-xl">
+                    {/* Header */}
+                    <div className="flex justify-between items-center border-b border-cyan-800 pb-2">
+                        <div className="flex gap-4">
+                            <span>LOCKHEED_MARTIN_FLIGHT_DYNAMICS_SIM</span>
+                            <span className="text-white">BUILD_992.4</span>
+                        </div>
+                        <div className="text-xs animate-pulse">LIVE_TELEMETRY_FEED</div>
+                    </div>
+
+                    <div className="flex-1 grid grid-cols-12 gap-4">
+                        
+                        {/* LEFT COLUMN: HUD */}
+                        <div className="col-span-4 lockheed-border p-4 relative bg-black/40">
+                            <div className="absolute top-2 left-2 text-[10px]">PITCH / ROLL</div>
+                            <div className="w-full h-full flex items-center justify-center relative">
+                                <div className="w-40 h-40 rounded-full border border-cyan-500/30 flex items-center justify-center relative">
+                                    <div className="w-full h-[1px] bg-cyan-500 absolute top-1/2"></div>
+                                    <div className="h-full w-[1px] bg-cyan-500 absolute left-1/2"></div>
+                                    <motion.div 
+                                        animate={{ rotate: params.speed / 20 }}
+                                        className="w-32 h-1 bg-cyan-400"
+                                    />
+                                </div>
+                            </div>
+                            <div className="absolute bottom-4 left-4 text-xs space-y-1">
+                                <p>ALT: {params.altitude} FT</p>
+                                <p>SPD: {params.speed} KTS</p>
+                                <p>MACH: {(params.speed / 666).toFixed(2)}</p>
+                            </div>
+                        </div>
+
+                        {/* MIDDLE COLUMN: WING STRESS VISUALIZER */}
+                        <div className="col-span-5 lockheed-border p-4 relative lockheed-grid">
+                            <div className="absolute top-2 left-2 text-[10px]">WING_SPAR_STRESS_MAP [FEA]</div>
+                            
+                            {/* Simulated Wing */}
+                            <div className="mt-10 h-32 flex items-center justify-center gap-1">
+                                {[...Array(30)].map((_, i) => {
+                                    const stress = Math.sin(i / 5) * wingLoad * 50;
+                                    const height = 20 + Math.abs(stress);
+                                    const color = height > 60 ? '#ef4444' : '#00f0ff';
+                                    return (
+                                        <motion.div 
+                                            key={i}
+                                            animate={{ height: `${height}%`, backgroundColor: color }}
+                                            transition={{ duration: 0.5 }}
+                                            className="w-2 rounded-sm opacity-80"
+                                        />
+                                    )
+                                })}
+                            </div>
+
+                            <div className="mt-8 grid grid-cols-2 gap-4 text-xs">
+                                <div className="bg-cyan-900/20 p-2 border border-cyan-800">
+                                    <p className="text-gray-400">WING_LOAD_PRESSURE</p>
+                                    <p className="text-xl font-bold">{wingLoad.toFixed(3)} MPa</p>
+                                </div>
+                                <div className="bg-cyan-900/20 p-2 border border-cyan-800">
+                                    <p className="text-gray-400">RISK_PROBABILITY</p>
+                                    <p className={`text-xl font-bold ${wingLoad > 0.05 ? 'text-red-500' : 'text-green-500'}`}>
+                                        {wingLoad > 0.05 ? 'CRITICAL' : 'NOMINAL'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT COLUMN: DATA */}
+                        <div className="col-span-3 space-y-4">
+                            <div className="lockheed-border p-2 text-[10px] h-1/2 overflow-y-auto scroll-hide">
+                                <p className="mb-2 underline">SYSTEM_LOGS:</p>
+                                <p>> INIT ATHERMACH DAMPING</p>
+                                <p>> LATITUDE: 44.2912 N</p>
+                                <p>> LONGITUDE: 12.2031 W</p>
+                                <p>> RESONANCE_CHECK: PASS</p>
+                                <p>> FLAPS: 12 DEG</p>
+                                <p>> HYDRAULICS: OK</p>
+                                <p>> FATIGUE_EST: {fatigueLife}</p>
+                            </div>
+                            <div className="h-1/2 bg-cyan-900/10 lockheed-border flex items-center justify-center p-2">
+                                <div className="text-center">
+                                    <p className="text-[9px]">ATHERMACH PROTECTION</p>
+                                    <div className="text-4xl font-bold text-neon mt-2">ACTIVE</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ==================================================================================
+        // 7. SUB-COMPONENT: ANSYS CLONE (AUTOMOTIVE)
+        // ==================================================================================
+
+        const AnsysSim = ({ subSector, damping }) => {
+            const [stressPoints, setStressPoints] = useState([]);
+
+            // Generate stress points
+            useEffect(() => {
+                const points = Array.from({ length: 50 }, () => ({
+                    x: Math.random() * 100,
+                    y: Math.random() * 100,
+                    val: Math.random()
+                }));
+                setStressPoints(points);
+            }, [subSector]);
+
+            return (
+                <div className="h-full w-full ansys-interface flex flex-col rounded-xl overflow-hidden shadow-2xl">
+                    {/* Toolbar */}
+                    <div className="h-8 bg-[#2d2d2d] flex items-center px-4 border-b border-[#444] text-[11px] select-none">
+                        <span className="ansys-toolbar-item">File</span>
+                        <span className="ansys-toolbar-item">Edit</span>
+                        <span className="ansys-toolbar-item">View</span>
+                        <span className="ansys-toolbar-item">Units</span>
+                        <span className="ansys-toolbar-item">Tools</span>
+                        <span className="ansys-toolbar-item bg-[#0056b3] text-white">Solve</span>
+                        <div className="ml-auto font-mono text-[10px] text-gray-400">ANSYS MECHANICAL 2024 R1</div>
+                    </div>
+
+                    <div className="flex-1 flex">
+                        {/* Sidebar */}
+                        <div className="w-64 bg-[#1e1e1e] border-r border-[#333] p-2 overflow-y-auto">
+                            <div className="text-[11px] font-bold text-white mb-2 pl-2">Project Tree</div>
+                            <ul className="text-[11px] text-gray-300 space-y-1 font-mono">
+                                <li className="pl-2 hover:bg-[#333] cursor-pointer">▼ Model (A4)</li>
+                                <li className="pl-4 hover:bg-[#333] cursor-pointer">▶ Geometry</li>
+                                <li className="pl-4 hover:bg-[#333] cursor-pointer">▶ Materials</li>
+                                <li className="pl-4 hover:bg-[#333] cursor-pointer">▼ Mesh</li>
+                                <li className="pl-6 text-green-500">✔ Nodes: 1.2M</li>
+                                <li className="pl-6 text-green-500">✔ Elements: 850k</li>
+                                <li className="pl-4 hover:bg-[#333] cursor-pointer">▼ Static Structural</li>
+                                <li className="pl-6 text-yellow-500">⚡ Analysis Settings</li>
+                                <li className="pl-6">➜ Damping: ζ = {damping}</li>
+                                <li className="pl-6">➜ {subSector === 'f1' ? 'Downforce Load' : 'Road Vib Input'}</li>
+                                <li className="pl-4 hover:bg-[#333] cursor-pointer">▼ Solution</li>
+                                <li className="pl-6">Equivalent Stress</li>
+                                <li className="pl-6">Total Deformation</li>
+                            </ul>
+                        </div>
+
+                        {/* Viewport */}
+                        <div className="flex-1 bg-[#111] relative overflow-hidden flex items-center justify-center">
+                            
+                            {/* 3D Placeholder Graphic */}
+                            <div className="relative w-96 h-64 border border-dashed border-[#444] rounded flex items-center justify-center group">
+                                <div className="absolute inset-0 grid grid-cols-10 grid-rows-10 opacity-20 pointer-events-none">
+                                    {[...Array(100)].map((_, i) => <div key={i} className="border border-[#333]"></div>)}
+                                </div>
+                                
+                                <motion.div 
+                                    className="w-64 h-32 bg-gradient-to-r from-blue-900 to-slate-800 rounded-lg relative opacity-80"
+                                    animate={{ 
+                                        rotateX: [0, 10, 0], 
+                                        rotateY: [0, 180, 360],
+                                        scale: [1, 1.05, 1]
+                                    }}
+                                    transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                                >
+                                    {/* Stress Overlay */}
+                                    <div className="absolute inset-0 opacity-50 mix-blend-overlay">
+                                        {stressPoints.slice(0, 10).map((p, i) => (
+                                            <div 
+                                                key={i} 
+                                                className="absolute w-4 h-4 rounded-full blur-md"
+                                                style={{ 
+                                                    left: `${p.x}%`, 
+                                                    top: `${p.y}%`, 
+                                                    backgroundColor: p.val > 0.8 ? 'red' : p.val > 0.5 ? 'yellow' : 'blue' 
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                    <div className="text-white text-[10px] absolute bottom-2 left-2 font-mono">
+                                        {subSector === 'f1' ? 'F1_CHASSIS_MONOCOQUE' : 'PASSENGER_SEDAN_FRAME'}
+                                    </div>
+                                </motion.div>
+                            </div>
+
+                            {/* Legend */}
+                            <div className="absolute top-4 left-4 bg-[#1e1e1e]/80 p-2 rounded border border-[#333] text-[9px] font-mono">
+                                <div className="mb-1 font-bold text-white">Equivalent Stress (MPa)</div>
+                                <div className="h-32 w-4 bg-gradient-to-b from-red-500 via-yellow-400 to-blue-600 rounded-sm mb-1"></div>
+                                <div className="flex flex-col justify-between h-32 absolute top-8 left-8 text-gray-300">
+                                    <span>450.0 Max</span>
+                                    <span>225.0</span>
+                                    <span>0.0 Min</span>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ==================================================================================
+        // 8. SUB-COMPONENT: ENERGY RECORDS & DATA
+        // ==================================================================================
+
+        const EnergyData = () => {
+            return (
+                <div className="h-full flex flex-col gap-6">
+                    <div className="grid grid-cols-4 gap-4">
+                        <div className="glass-panel p-4 rounded-2xl border-t-2 border-neon">
+                            <p className="text-[10px] text-slate-400 uppercase">Total Capacity</p>
+                            <p className="text-2xl font-black">480 MW</p>
+                        </div>
+                        <div className="glass-panel p-4 rounded-2xl border-t-2 border-neon">
+                            <p className="text-[10px] text-slate-400 uppercase">Active Turbines</p>
+                            <p className="text-2xl font-black">52/54</p>
+                        </div>
+                        <div className="glass-panel p-4 rounded-2xl border-t-2 border-neon">
+                            <p className="text-[10px] text-slate-400 uppercase">Grid Freq</p>
+                            <p className="text-2xl font-black text-green-400">50.02 Hz</p>
+                        </div>
+                        <div className="glass-panel p-4 rounded-2xl border-t-2 border-neon">
+                            <p className="text-[10px] text-slate-400 uppercase">Damping Eff</p>
+                            <p className="text-2xl font-black text-neon">98.4%</p>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 glass-panel rounded-2xl overflow-hidden flex flex-col">
+                        <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black/20">
+                            <h3 className="font-bold uppercase tracking-widest text-xs text-neon">Vestas V164 Telemetry Logs</h3>
+                            <button className="text-[10px] bg-white/5 px-3 py-1 rounded hover:bg-white/10 interactive">EXPORT CSV</button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead className="text-[10px] uppercase text-slate-500 bg-black/40 sticky top-0 backdrop-blur-md">
+                                    <tr>
+                                        <th className="p-3">Record ID</th>
+                                        <th className="p-3">Timestamp</th>
+                                        <th className="p-3">Turbine Unit</th>
+                                        <th className="p-3">RPM</th>
+                                        <th className="p-3">Vib (mm/s)</th>
+                                        <th className="p-3">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="text-xs font-mono text-slate-300">
+                                    {ATHER_DB.ENERGY_RECORDS.map((rec, i) => (
+                                        <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                            <td className="p-3 text-neon">{rec.id}</td>
+                                            <td className="p-3">{rec.timestamp.split('T')[1].split('.')[0]}</td>
+                                            <td className="p-3">{rec.turbine_id}</td>
+                                            <td className="p-3">{rec.rpm}</td>
+                                            <td className="p-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-16 h-1 bg-slate-700 rounded-full overflow-hidden">
+                                                        <div 
+                                                            className={`h-full ${rec.vibration_mm_s > 1.0 ? 'bg-red-500' : 'bg-green-500'}`} 
+                                                            style={{ width: `${rec.vibration_mm_s * 60}%` }}
+                                                        ></div>
+                                                    </div>
+                                                    {rec.vibration_mm_s}
+                                                </div>
+                                            </td>
+                                            <td className="p-3">
+                                                <span className={`px-2 py-1 rounded text-[9px] font-bold ${rec.status === 'OPTIMAL' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                    {rec.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ==================================================================================
+        // 9. MAIN VIEWS (HOME, INNOVATIONS, SALES, TEAM, PRIVACY)
+        // ==================================================================================
+
+        const HomeView = ({ setView }) => (
+            <motion.div 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="pt-32 px-8 lg:px-16 min-h-screen flex items-center"
+            >
+                <div className="grid lg:grid-cols-2 gap-20 w-full">
+                    <div className="space-y-10 z-10">
+                        <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full border border-neon/30 bg-neon/5 backdrop-blur-md">
+                            <span className="w-2 h-2 bg-neon rounded-full animate-pulse"></span>
+                            <span className="text-[10px] font-black uppercase text-neon tracking-widest">Techno Main Salt Lake R&D</span>
+                        </div>
+                        
+                        <h1 className="text-6xl lg:text-8xl font-black leading-[0.9] tracking-tighter">
+                            ENGINEERING <br/>
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-neon to-white">PRECISION</span> <br/>
+                            CONTROL.
+                        </h1>
+
+                        <p className="text-lg text-slate-400 max-w-xl leading-relaxed">
+                            Industrial-grade passive vibration damping systems. Eliminating resonance failure in Aerospace, Automotive, and Energy sectors through advanced viscoelastic hysteresis and modal splitting.
+                        </p>
+
+                        <div className="flex flex-wrap gap-4">
+                            <button 
+                                onClick={() => setView('simulation')}
+                                className="px-8 py-4 bg-neon text-black font-black text-xs uppercase tracking-widest rounded hover:scale-105 transition-transform interactive shadow-[0_0_20px_rgba(214,237,23,0.4)]"
+                            >
+                                Launch Simulator
+                            </button>
+                            <button 
+                                onClick={() => setView('sales')}
+                                className="px-8 py-4 glass-panel text-white font-bold text-xs uppercase tracking-widest rounded hover:bg-white/10 transition-colors interactive"
+                            >
+                                View ROI Reports
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="relative hidden lg:flex items-center justify-center">
+                        <div className="w-[500px] h-[500px] rounded-full border border-white/5 flex items-center justify-center relative">
+                            <div className="absolute inset-0 cyber-grid opacity-20 rounded-full animate-spin-slow"></div>
+                            <motion.div 
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+                                className="w-[80%] h-[80%] border-2 border-dashed border-neon/30 rounded-full"
+                            />
+                            <div className="absolute text-center">
+                                <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2">System Efficiency</p>
+                                <p className="text-8xl font-black text-white italic">99.4<span className="text-neon text-4xl">%</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+        );
+
+        const InnovationsView = () => {
+            const [activeId, setActiveId] = useState(null);
+
+            return (
+                <div className="pt-32 px-8 lg:px-16 min-h-screen">
+                    <h2 className="text-6xl font-black italic uppercase mb-16">Technical <span className="text-neon">Deep Dive</span></h2>
+                    
+                    <div className="grid lg:grid-cols-3 gap-8">
+                        {ATHER_DB.INNOVATIONS.map((item, idx) => (
+                            <motion.div 
+                                key={idx}
+                                layoutId={`card-${idx}`}
+                                onClick={() => setActiveId(activeId === idx ? null : idx)}
+                                className={`glass-panel p-10 rounded-3xl cursor-pointer relative overflow-hidden interactive group ${activeId === idx ? 'border-neon ring-1 ring-neon ring-offset-2 ring-offset-black' : ''}`}
+                            >
+                                <div className="absolute top-0 right-0 p-8 text-8xl font-black text-white/5 group-hover:text-neon/10 transition-colors">
+                                    0{idx + 1}
+                                </div>
+                                <h3 className="text-2xl font-black uppercase italic mb-4 relative z-10">{item.title}</h3>
+                                <p className="text-neon font-bold text-sm uppercase tracking-widest mb-6">{item.stat} Improvement</p>
+                                <p className="text-slate-400 text-sm leading-relaxed mb-6">{item.desc}</p>
+                                
+                                <AnimatePresence>
+                                    {activeId === idx && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: 'auto' }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="border-t border-white/10 pt-6 mt-6"
+                                        >
+                                            <p className="text-sm text-white mb-4">{item.detail}</p>
+                                            <div className="bg-black/40 p-4 rounded border border-white/10 font-mono text-xs text-neon">
+                                                {item.math}
+                                            </div>
+                                            
+                                            <div className="mt-6 flex items-center gap-4">
+                                                <div className="h-2 flex-1 bg-slate-800 rounded-full overflow-hidden">
+                                                    <motion.div 
+                                                        initial={{ width: 0 }} 
+                                                        animate={{ width: '100%' }} 
+                                                        className="h-full bg-neon"
+                                                    />
+                                                </div>
+                                                <span className="text-[10px] font-bold uppercase">Implementation Ready</span>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const SalesView = () => (
+            <div className="pt-32 px-8 lg:px-16 min-h-screen">
+                <div className="flex justify-between items-end mb-16">
+                    <div>
+                        <h2 className="text-6xl font-black italic uppercase">ROI & <span className="text-neon">Telemetry</span></h2>
+                        <p className="text-slate-500 mt-4 text-lg">Quantifiable mechanical impact analysis.</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Total Asset Savings</p>
+                        <p className="text-4xl font-black text-white">$2.1B <span className="text-sm text-green-500">▲ 14%</span></p>
+                    </div>
+                </div>
+
+                <div className="grid lg:grid-cols-2 gap-12">
+                    {/* Before vs After Chart */}
+                    <div className="glass-panel p-10 rounded-3xl">
+                        <h3 className="text-xl font-bold uppercase mb-8">Vibration Amplitude Comparison</h3>
+                        <div className="space-y-8">
+                            <div>
+                                <div className="flex justify-between text-xs font-bold uppercase mb-2">
+                                    <span>Baseline (Undamped)</span>
+                                    <span className="text-red-500">CRITICAL FAILURE RISK</span>
+                                </div>
+                                <div className="h-12 bg-slate-800 rounded w-full relative overflow-hidden">
+                                    <motion.div 
+                                        initial={{ width: 0 }} 
+                                        animate={{ width: '92%' }} 
+                                        transition={{ duration: 1, delay: 0.2 }}
+                                        className="h-full bg-red-500 flex items-center justify-end px-4 font-black text-black"
+                                    >
+                                        9.2g
+                                    </motion.div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div className="flex justify-between text-xs font-bold uppercase mb-2">
+                                    <span>With Athermach</span>
+                                    <span className="text-green-500">OPTIMAL</span>
+                                </div>
+                                <div className="h-12 bg-slate-800 rounded w-full relative overflow-hidden">
+                                    <motion.div 
+                                        initial={{ width: 0 }} 
+                                        animate={{ width: '15%' }} 
+                                        transition={{ duration: 1, delay: 0.5 }}
+                                        className="h-full bg-neon flex items-center justify-end px-4 font-black text-black"
+                                    >
+                                        1.5g
+                                    </motion.div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-12 p-6 bg-white/5 rounded-xl border border-white/5">
+                            <p className="text-[10px] font-mono text-slate-400 uppercase mb-2">Physics Core</p>
+                            <p className="text-lg font-bold italic text-white">
+                                "According to the Fatigue Power Law, a 60% reduction in stress amplitude results in a 
+                                <span className="text-neon"> 2.8x extension</span> in component fatigue life."
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Report Cards */}
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="glass-panel p-8 rounded-3xl flex flex-col justify-center text-center interactive hover:border-neon transition-colors">
+                            <div className="text-4xl mb-4">💰</div>
+                            <h4 className="text-2xl font-black mb-2">43%</h4>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Maintenance Cost Reduction</p>
+                        </div>
+                        <div className="glass-panel p-8 rounded-3xl flex flex-col justify-center text-center interactive hover:border-neon transition-colors">
+                            <div className="text-4xl mb-4">⚡</div>
+                            <h4 className="text-2xl font-black mb-2">ZERO</h4>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Power Consumption (Passive)</p>
+                        </div>
+                        <div className="glass-panel p-8 rounded-3xl flex flex-col justify-center text-center interactive hover:border-neon transition-colors">
+                            <div className="text-4xl mb-4">🛡️</div>
+                            <h4 className="text-2xl font-black mb-2">100%</h4>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Fail-Safe Operation</p>
+                        </div>
+                        <div className="glass-panel p-8 rounded-3xl flex flex-col justify-center text-center interactive hover:border-neon transition-colors">
+                            <div className="text-4xl mb-4">🔧</div>
+                            <h4 className="text-2xl font-black mb-2">85%</h4>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Retrofit Compatibility</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+
+        const TeamView = () => (
+            <div className="pt-32 px-8 lg:px-16 min-h-screen">
+                <div className="text-center mb-20">
+                    <h2 className="text-6xl font-black italic uppercase mb-4">Core <span className="text-neon">Team</span></h2>
+                    <div className="inline-block px-4 py-2 bg-white/5 rounded-full">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400">Techno Main Salt Lake | Mechanical Engineering</p>
+                    </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    {ATHER_DB.TEAM.map((member) => (
+                        <div key={member.id} className="glass-panel p-8 rounded-[2.5rem] group hover:bg-neon hover:text-black transition-all duration-300">
+                            <div className="w-24 h-24 bg-slate-800 rounded-full mx-auto mb-8 flex items-center justify-center text-3xl group-hover:bg-black group-hover:scale-110 transition-transform">
+                                👨‍💻
+                            </div>
+                            <h3 className="text-xl font-black uppercase italic mb-2">{member.name}</h3>
+                            <p className="text-[9px] font-bold uppercase tracking-widest text-neon group-hover:text-black/70 mb-6">{member.role}</p>
+                            
+                            <div className="space-y-2 border-t border-white/10 pt-6 group-hover:border-black/10">
+                                <p className="text-xs font-bold">{member.degree}</p>
+                                <p className="text-[10px] opacity-70 leading-relaxed">{member.bio}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+
+        const PrivacyView = () => (
+            <div className="pt-32 px-8 lg:px-16 min-h-screen flex items-center justify-center">
+                <div className="max-w-4xl w-full glass-panel p-16 rounded-[4rem] text-center relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-16 opacity-5">
+                        <svg width="200" height="200" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+                    </div>
+                    
+                    <h2 className="text-5xl font-black italic uppercase mb-8">Secure Data <span className="text-neon">Protocol</span></h2>
+                    
+                    <p className="text-xl text-slate-400 mb-12 leading-relaxed">
+                        Athermach employs military-grade <span className="text-white font-bold">AES-256 encryption</span> for all client telemetry. 
+                        Simulation data is processed on air-gapped nodes to ensure zero IP leakage.
+                    </p>
+
+                    <div className="grid grid-cols-3 gap-8">
+                        <div className="bg-white/5 p-6 rounded-2xl">
+                            <div className="text-neon text-2xl mb-2">🔒</div>
+                            <h4 className="font-bold text-sm uppercase mb-2">End-to-End Encrypted</h4>
+                            <p className="text-[10px] text-slate-500">Data is encrypted at rest and in transit.</p>
+                        </div>
+                        <div className="bg-white/5 p-6 rounded-2xl">
+                            <div className="text-neon text-2xl mb-2">🕵️</div>
+                            <h4 className="font-bold text-sm uppercase mb-2">Anonymized Models</h4>
+                            <p className="text-[10px] text-slate-500">ML training uses stripped metadata only.</p>
+                        </div>
+                        <div className="bg-white/5 p-6 rounded-2xl">
+                            <div className="text-neon text-2xl mb-2">📜</div>
+                            <h4 className="font-bold text-sm uppercase mb-2">ISO 27001 Certified</h4>
+                            <p className="text-[10px] text-slate-500">Global standard for information security.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+
+        // ==================================================================================
+        // 10. MAIN APP CONTROLLER
+        // ==================================================================================
+
+        const App = () => {
+            const [view, setView] = useState('home');
+            
+            // Simulation State
+            const [simSector, setSimSector] = useState('aero');
+            const [autoSubSector, setAutoSubSector] = useState('f1');
+            const [damping, setDamping] = useState(0.25);
+            const [simParams, setSimParams] = useState({ speed: 450, altitude: 30000 });
+
+            useLiquidCursor();
+
+            return (
+                <div className="relative">
+                    <Navbar setView={setView} activeView={view} />
+
+                    <AnimatePresence mode="wait">
+                        
+                        {view === 'home' && <HomeView key="home" setView={setView} />}
+                        
+                        {view === 'innovations' && <InnovationsView key="innovations" />}
+                        
+                        {view === 'sales' && <SalesView key="sales" />}
+
+                        {view === 'simulation' && (
+                            <motion.div 
+                                key="sim"
+                                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                className="pt-32 px-4 lg:px-12 pb-20 min-h-screen"
+                            >
+                                {/* SIMULATION CONTROLLER */}
+                                <div className="flex flex-wrap gap-4 mb-8">
+                                    {['aero', 'auto', 'energy'].map(s => (
+                                        <button 
+                                            key={s} 
+                                            onClick={() => setSimSector(s)}
+                                            className={`px-8 py-3 rounded-lg text-xs font-black uppercase tracking-widest transition-all interactive ${simSector === s ? 'bg-neon text-black' : 'glass-panel text-slate-400 hover:text-white'}`}
+                                        >
+                                            {s} Portal
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="grid lg:grid-cols-12 gap-8 h-[800px]">
+                                    
+                                    {/* LEFT: CONTROLS */}
+                                    <div className="lg:col-span-3 glass-panel p-8 rounded-3xl flex flex-col gap-8 overflow-y-auto">
+                                        <div className="pb-4 border-b border-white/10">
+                                            <h3 className="text-xl font-black italic uppercase">Controls</h3>
+                                            <p className="text-[10px] text-slate-400 uppercase tracking-widest">Parameter Input</p>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Damping Ratio (ζ)</label>
+                                            <div className="flex items-center gap-4">
+                                                <input 
+                                                    type="range" min="0.05" max="0.5" step="0.01" 
+                                                    value={damping} 
+                                                    onChange={(e) => setDamping(parseFloat(e.target.value))}
+                                                    className="w-full accent-neon interactive"
+                                                />
+                                                <span className="font-mono text-neon">{damping}</span>
+                                            </div>
+                                        </div>
+
+                                        {simSector === 'aero' && (
+                                            <>
+                                                <div>
+                                                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Airspeed (Knots)</label>
+                                                    <input 
+                                                        type="range" min="100" max="900" step="10" 
+                                                        value={simParams.speed} 
+                                                        onChange={(e) => setSimParams({...simParams, speed: parseInt(e.target.value)})}
+                                                        className="w-full accent-cyan-400 interactive"
+                                                    />
+                                                    <span className="font-mono text-xs">{simParams.speed} KTS</span>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Altitude (Feet)</label>
+                                                    <input 
+                                                        type="range" min="0" max="45000" step="500" 
+                                                        value={simParams.altitude} 
+                                                        onChange={(e) => setSimParams({...simParams, altitude: parseInt(e.target.value)})}
+                                                        className="w-full accent-cyan-400 interactive"
+                                                    />
+                                                    <span className="font-mono text-xs">{simParams.altitude} FT</span>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {simSector === 'auto' && (
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <button 
+                                                    onClick={() => setAutoSubSector('f1')}
+                                                    className={`p-4 rounded-xl text-[10px] font-bold uppercase border interactive ${autoSubSector === 'f1' ? 'border-neon bg-neon/10' : 'border-white/10'}`}
+                                                >
+                                                    F1 / Motorsport
+                                                </button>
+                                                <button 
+                                                    onClick={() => setAutoSubSector('road')}
+                                                    className={`p-4 rounded-xl text-[10px] font-bold uppercase border interactive ${autoSubSector === 'road' ? 'border-neon bg-neon/10' : 'border-white/10'}`}
+                                                >
+                                                    Road Car
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        <div className="mt-auto bg-white/5 p-4 rounded-xl">
+                                            <p className="text-[9px] uppercase font-bold text-slate-400 mb-2">Est. Fatigue Life</p>
+                                            <p className="text-2xl font-black text-green-400">
+                                                {PhysicsEngine.calculateFatigueLife(400, damping).toLocaleString()}
+                                            </p>
+                                            <p className="text-[9px] opacity-50">CYCLES</p>
+                                        </div>
+                                    </div>
+
+                                    {/* RIGHT: VIEWPORT */}
+                                    <div className="lg:col-span-9 bg-black rounded-3xl overflow-hidden border border-white/10 relative">
+                                        {simSector === 'aero' && <LockheedSim params={simParams} />}
+                                        {simSector === 'auto' && <AnsysSim subSector={autoSubSector} damping={damping} />}
+                                        {simSector === 'energy' && <EnergyData />}
+                                    </div>
+
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {view === 'team' && <TeamView key="team" />}
+                        {view === 'privacy' && <PrivacyView key="privacy" />}
+
+                    </AnimatePresence>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
